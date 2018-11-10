@@ -7,7 +7,16 @@ project(baxter_against_humanity)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+  baxter_tools
+  geometry_msgs
+  intera_interface
+  moveit_msgs
+  roscpp
+  rospy
+  std_msgs
+  tf2_ros
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -66,7 +75,7 @@ find_package(catkin REQUIRED)
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
+#   geometry_msgs#   moveit_msgs#   std_msgs
 # )
 
 ################################################
@@ -101,7 +110,7 @@ find_package(catkin REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES baxter_against_humanity
-#  CATKIN_DEPENDS other_catkin_pkg
+#  CATKIN_DEPENDS baxter_tools geometry_msgs intera_interface moveit_msgs roscpp rospy std_msgs tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -113,7 +122,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
-# ${catkin_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
