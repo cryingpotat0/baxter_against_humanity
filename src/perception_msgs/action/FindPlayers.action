@@ -1,0 +1,8 @@
+# Define the goal
+uint32 do_task # boolean to do task, just a placeholder will always be 1
+---
+# Define the result
+uint8 num_players # how many players 
+---
+# Define a feedback message
+float32 percent_panned # how much the head has panned around the table
