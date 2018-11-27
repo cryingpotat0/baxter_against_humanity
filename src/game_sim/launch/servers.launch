@@ -1,9 +1,9 @@
 <launch>
-  <node pkg="control" 	 type="pick_card_server.py"  	 name="pick_card"	/>
-  <node pkg="control" 	 type="place_card_server.py" 	 name="place_card"	/>
-  <node pkg="control" 	 type="setup_arm_server.py" 	 name="setup_arm"	/>
-  <node pkg="control" 	 type="view_card_head_server.py" name="view_card_head" 		/>
-  <node pkg="perception" type="find_piles_server.py" 	 name="find_piles"	/>
-  <node pkg="perception" type="find_players_server.py" 	 name="find_players"	/>
-  <node pkg="perception" type="read_card_server.py" 	 name="read_card"	/>
+  <node pkg="control" 	 type="pick_card_server.py"  	 name="pick_card"	output="screen"/>
+  <node pkg="control" 	 type="place_card_server.py" 	 name="place_card"	output="screen"/>
+  <node pkg="control" 	 type="setup_arm_server.py" 	 name="setup_arm"	output="screen"/>
+  <node pkg="control" 	 type="view_card_head_server.py" name="view_card_head" 		output="screen"/>
+  <node pkg="perception" type="find_piles_server.py" 	 name="find_piles"	output="screen"/>
+  <node pkg="perception" type="find_players_server.py" 	 name="find_players"	output="screen"/>
+  <node pkg="perception" type="read_card_server.py" 	 name="read_card"	output="screen"/>
 </launch>
