@@ -1,0 +1,8 @@
+# Define the goal
+float32[] card_pos # x,y,z
+---
+# Define the result
+bool success # placeholder
+---
+# Define a feedback message
+bool complete # complete or not

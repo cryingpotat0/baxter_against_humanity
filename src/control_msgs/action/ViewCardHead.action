@@ -1,0 +1,8 @@
+# Define the goal
+uint8 do_task # x,y,z
+---
+# Define the result
+bool success # placeholder
+---
+# Define a feedback message
+bool complete # complete or not

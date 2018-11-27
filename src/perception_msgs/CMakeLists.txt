@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(catkin REQUIRED genmsg actionlib_msgs)
 add_action_files(DIRECTORY action FILES 
 	FindPlayers.action
+	FindPiles.action
+	ReadCard.action
 	)
 generate_messages(DEPENDENCIES actionlib_msgs)
 

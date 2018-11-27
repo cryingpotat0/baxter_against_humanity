@@ -21,9 +21,14 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(catkin REQUIRED genmsg actionlib_msgs actionlib)
 add_action_files(DIRECTORY ../perception_msgs/action FILES 
 	FindPlayers.action
+	FindPiles.action
+	ReadCard.action
 	)
 add_action_files(DIRECTORY ../control_msgs/action FILES 
 	SetupArm.action
+	PickCard.action
+	SetupArm.action
+	ViewCardHead.action
 	)
 generate_messages(DEPENDENCIES actionlib_msgs)
 

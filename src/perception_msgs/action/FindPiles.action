@@ -1,0 +1,9 @@
+# Define the goal
+uint8 do_task # 
+---
+# Define the result
+string[] positions  # name, str(x,y,z) 
+# name in ["black", "white", "curr_black", "curr_white", "my_black", "my_white/i" for i in range(7). "dispose"]
+---
+# Define a feedback message
+uint8 complete # complete or not

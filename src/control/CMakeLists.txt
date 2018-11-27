@@ -19,6 +19,9 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(catkin REQUIRED genmsg actionlib_msgs actionlib)
 add_action_files(DIRECTORY ../control_msgs/action FILES 
 	SetupArm.action
+	PickCard.action
+	PlaceCard.action
+	ViewCardHead.action
 	)
 generate_messages(DEPENDENCIES actionlib_msgs)
 

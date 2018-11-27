@@ -1,0 +1,8 @@
+# Define the goal
+uint8 do_task # placeholder 
+---
+# Define the result
+string text  # card text 
+---
+# Define a feedback message
+uint8 complete # complete or not
