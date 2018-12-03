@@ -62,17 +62,24 @@ def non_max_suppression_fast(boxes, overlapThresh):
     return boxes[pick].astype("int")
 
 
-def get_contours(frame):
+def get_contours(frame, hand=True):
     frame = frame.copy()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    LOWERX, UPPERX, LOWERY, UPPERY = 100, 1100, 150, 800
+    if hand:
+        LOWERX, UPPERX, LOWERY, UPPERY = 100, 1100, 150, 800
+    else:
+        LOWERX, UPPERX, LOWERY, UPPERY = 300, 900, 0, 800
+
     gray = gray[LOWERY:UPPERY,LOWERX:UPPERX]
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
-    edged = cv2.Canny(gray, 10, 150)
+    edged = cv2.Canny(gray, 100, 150)
     cnts = cv2.findContours(edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[1]
-    cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:50]
+    cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:5]
+    cv2.drawContours(frame, cnts, -1, (125, 0, 0), 3)
     cv2.imshow('img', edged)
-    cv2.waitKey(100)
+    cv2.waitKey(1)
+    print(len(cnts))
+    return None, None, frame
     screenCnts = []
     for c in cnts:
         peri = cv2.arcLength(c, True)
@@ -86,9 +93,10 @@ def get_contours(frame):
         if len(approx) >= 4 and len(approx) <= 5 and actualArea > 0 \
                  and boundingArea > 10000 and boundingArea / actualArea < 1.5: #and len(approx) <=5:
             screenCnts += [[x,y, x+w, y+h]]
-            # cv2.putText(frame, "{}".format(boundingArea / actualArea),
-            #      (x+LOWERX, y+LOWERY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+            cv2.putText(frame, "{}".format(boundingArea / actualArea),
+                  (x+LOWERX, y+LOWERY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
     #cv2.drawContours(frame, screenCnts, -1, (0,255,0), 3)    
+    print(len(screenCnts))
     screenCnts = non_max_suppression_fast(screenCnts, 0.3)
     blacks, whites = [],[]
     widths = []
@@ -115,14 +123,17 @@ def get_contours(frame):
     return blacks, whites, frame
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture("/home/cc/ee106a/fa18/class/ee106a-abs/new_vid/left2.avi")
-    from ar_markers import detect_markers
+    cap = cv2.VideoCapture("./videos/head_cards2.avi")
+    i = 0
     while 1:
         ret, frame = cap.read()
+        cv2.imwrite("./videos/test/img{}.png".format(i), frame)
+        i+= 1
+        continue
 
         # make image blurred grayscale and find the edges
         if frame is None: break
-        _, _, frame = get_contours(frame)
+        _, _, frame = get_contours(frame, hand=False)
         #contours, frame_white = get_contours(frame, True, False)
         #contours, frame_black = get_contours(frame, True, True)
         #frame_white = cv2.resize(frame_white, (512, 300))
