@@ -6,4 +6,11 @@
   <node pkg="perception" type="find_piles_server.py" 	 name="find_piles"	output="screen"/>
   <node pkg="perception" type="find_players_server.py" 	 name="find_players"	output="screen"/>
   <node pkg="perception" type="read_card_server.py" 	 name="read_card"	output="screen"/>
+  <node pkg="baxter_interface" type="joint_trajectory_action_server.py" name="joint_trajectory"/>
+  <!--
+  <include file="$(find control)/launch/move_group.launch">
+  	<arg name="right_electric_gripper" value="true" />
+  	<arg name="left_electric_gripper" value="true" />
+  </include>
+  -->
 </launch>

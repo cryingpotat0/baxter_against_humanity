@@ -24,7 +24,7 @@ add_action_files(DIRECTORY ../perception_msgs/action FILES
 	FindPiles.action
 	ReadCard.action
 	)
-add_action_files(DIRECTORY ../control_msgs/action FILES 
+add_action_files(DIRECTORY ../bah_control_msgs/action FILES 
 	SetupArm.action
 	PickCard.action
 	SetupArm.action

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>control_msgs</name>
+  <name>bah_control_msgs</name>
   <version>0.0.0</version>
   <description>The control_msgs package</description>
 

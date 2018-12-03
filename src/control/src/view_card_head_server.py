@@ -3,7 +3,7 @@
 import rospy
 import actionlib
 
-from control_msgs.msg import ViewCardHeadAction
+from bah_control_msgs.msg import ViewCardHeadAction
 
 
 class ViewCardHeadServer:

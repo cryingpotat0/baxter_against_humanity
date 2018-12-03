@@ -6,7 +6,7 @@ from moveit_commander import MoveGroupCommander
 import numpy as np
 from numpy import linalg
 from geometry_msgs.msg import PoseStamped
-from control_msgs.msg import PickCardAction
+from bah_control_msgs.msg import PickCardAction
 #for the vacuum cup gripper
 from baxter_interface import gripper as robot_gripper
 

@@ -218,8 +218,8 @@ class Tuck(object):
                               " Disabling Collision Avoidance and untucking.")
                 self._check_arm_state()
                 suppress = deepcopy(self._arm_state['flipped'])
-                #actions = {'left': 'untuck', 'right': 'untuck'}
-                actions = {'right': 'untuck'}
+                actions = {'left': 'untuck', 'right': 'untuck'}
+                #actions = {'right': 'untuck'}
                 self._move_to(actions, suppress)
                 self._done = True
                 return
@@ -229,8 +229,8 @@ class Tuck(object):
                               " Moving to neutral position.")
                 self._check_arm_state()
                 suppress = deepcopy(self._arm_state['flipped'])
-                #actions = {'left': 'untuck', 'right': 'untuck'}
-                actions = {'right': 'untuck'}
+                actions = {'left': 'untuck', 'right': 'untuck'}
+                #actions = {'right': 'untuck'}
                 self._move_to(actions, suppress)
                 self._done = True
                 return

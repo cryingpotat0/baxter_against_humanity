@@ -3,7 +3,7 @@
 import rospy
 import actionlib
 
-from control_msgs.msg import SetupArmAction
+from bah_control_msgs.msg import SetupArmAction
 from tuck_arms import Tuck
 
 

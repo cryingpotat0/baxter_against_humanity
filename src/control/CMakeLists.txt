@@ -17,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(catkin REQUIRED genmsg actionlib_msgs actionlib)
-add_action_files(DIRECTORY ../control_msgs/action FILES 
+add_action_files(DIRECTORY ../bah_control_msgs/action FILES 
 	SetupArm.action
 	PickCard.action
 	PlaceCard.action
