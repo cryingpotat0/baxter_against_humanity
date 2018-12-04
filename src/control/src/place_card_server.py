@@ -18,15 +18,15 @@ class PlaceCardServer:
 	self.server.start()
 	rospy.wait_for_service('compute_ik')
 	self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
-	self.left_gripper = robot_gripper.Gripper('left')
+	self.right_gripper = robot_gripper.Gripper('right')
 
 
   def execute(self, goal):
     #Construct the request
     compute_ik = self.compute_ik
     request = GetPositionIKRequest()
-    request.ik_request.group_name = "left_arm"
-    request.ik_request.ik_link_name = "left_gripper"
+    request.ik_request.group_name = "right_arm"
+    request.ik_request.ik_link_name = "right_gripper"
     request.ik_request.attempts = 20
     request.ik_request.pose_stamped.header.frame_id = "base"
 
@@ -48,7 +48,7 @@ class PlaceCardServer:
         
         #Print the response HERE
         print("RESPONSE:", response)
-        group = MoveGroupCommander("left_arm")
+        group = MoveGroupCommander("right_arm")
 
         # Setting position and orientation target
         group.set_pose_target(request.ik_request.pose_stamped)
@@ -65,7 +65,7 @@ class PlaceCardServer:
     # for the placing:
     print('Opening gripper...')
     rospy.sleep(1.0)
-    self.left_gripper.open()
+    self.right_gripper.open()
     print('Done!')
     # Do lots of awesome groundbreaking robot stuff here
     result = PlaceCardResult(1)

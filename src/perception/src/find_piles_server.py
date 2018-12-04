@@ -10,7 +10,6 @@ import card_table_detection
 from sensor_msgs.msg import Image
 import cv2
 import numpy as np
-from ar_markers import detect_markers
 import baxter_interface
 
 class FindPilesServer:
@@ -22,7 +21,9 @@ class FindPilesServer:
     self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
     self.cv_bridge = CvBridge()
     self.piles = {}
-    self.arm_pos = [0.8, 0.04, 0.1]
+    self.arm_pos = [0.65, 0.04, 0.02]
+    self.IMG_HEIGHT = 800
+    self.IMG_WIDTH = 1280
 
   def move_arm(self, pos):
     # Do lots of awesome groundbreaking robot stuff here
@@ -88,21 +89,47 @@ class FindPilesServer:
   def recursive_find(self, pos, color):
       # color: black=True, white=False
       # pos: rough pos
-    self.move_arm(pos)
-    frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
-    frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
-    blacks, whites, img = card_table_detection.get_contours(frame)
-    cv2.imshow('img', img)
-    cv2.waitKey(100)
+    NUM_TRIES = 10
+    pos = np.array(pos)
+    x_c, y_c = self.IMG_WIDTH // 2, self.IMG_HEIGHT // 2
     if color:
       pass
         # balck
     else:
-      pass
-        #white
+      pos[2] -= 0.1
+      curr_dist_from_center = float('inf')
+      best_img = None
+      thresh = 0.07
+      while curr_dist_from_center > thresh:
+        self.move_arm(pos)
+  
+        all_cards = []
+        for _ in range(NUM_TRIES):
+          frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
+          frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
+          _, card, img = card_table_detection.get_contours(frame)
+          if len(card) == 1:
+            best_img = img
+            all_cards.append(card[0])
+        all_cards = np.array(all_cards)
+        print(all_cards)
+        best_card = all_cards.mean(axis=0).astype(int)
+        print(best_card)
+        card_x_c, card_y_c = (best_card[0] + best_card[2]) // 2, (best_card[1] + best_card[3]) // 2
+        
+        new_pos = np.array(self.get_dist_from_center(best_card, pos) + (pos[2],))
+        curr_dist_from_center = np.sqrt(sum((new_pos -pos) ** 2))
+        if curr_dist_from_center > thresh: break
+        print("DIST", curr_dist_from_center, card_x_c, card_y_c, x_c, y_c)
+        print("POS", new_pos, pos)
+        cv2.imshow('img', best_img)
+        cv2.waitKey(5000)
+        pos = new_pos
+    print("final pos ", pos, self.get_height())
+
 
   def update_piles(self):
-    NUM_TRIES = 30
+    NUM_TRIES = 15
     if len(self.piles) == 0:
       # get only initial black and white piles
       try:
@@ -112,8 +139,8 @@ class FindPilesServer:
           frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
           frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
           blacks, whites, img = card_table_detection.get_contours(frame)
-          cv2.imshow('img', img)
-          cv2.waitKey(100)
+          #cv2.imshow('img', img)
+          #cv2.waitKey(1000)
 
           if len(blacks) == 1:
             # should be exactly one black pile
@@ -122,14 +149,18 @@ class FindPilesServer:
             all_whites.append(whites[0])
           if len(whites) == 1 and len(blacks) == 1:
             best_img = img
-        #print(all_blacks, all_whites)
+        
+        print(all_blacks, "blacks\n", all_whites, "whites")
         all_blacks = np.array(all_blacks)
         all_whites = np.array(all_whites)
         best_black = all_blacks.mean(axis=0).astype(int)
         best_white = all_whites.mean(axis=0).astype(int)
         print(best_white)
-        white_pos = self.get_dist_from_center(best_white)
-        white_pos = self.recursive_find(white_pos, False)
+        white_pos = self.get_dist_from_center(best_white, self.arm_pos)
+        print(white_pos)
+        cv2.imshow('img', best_img)
+        cv2.waitKey(5000)
+        white_pos = self.recursive_find(list(white_pos) + [self.arm_pos[2]], False)
         return best_img
       except Exception as e:
         print("failed", str(e))
@@ -140,11 +171,11 @@ class FindPilesServer:
     return dist
   
   def get_dist_from_center(self, card, curr_pos):
-    IMG_HEIGHT = 800
-    IMG_WIDTH = 1280
+    IMG_HEIGHT = self.IMG_HEIGHT
+    IMG_WIDTH = self.IMG_WIDTH
     x_c, y_c = IMG_WIDTH // 2, IMG_HEIGHT // 2
     card_x_c, card_y_c = (card[0] + card[2]) // 2, (card[1] + card[3]) // 2
-    dist_x, dist_y = -(x_c - card_x_c), -(y_c - card_y_c)
+    dist_x, dist_y = (x_c - card_x_c), (y_c - card_y_c)
     print(dist_x, dist_y, "distances")
     """
     delta_z = 0.24m
@@ -152,7 +183,8 @@ class FindPilesServer:
     camera_dist = k * (pixel_dist)
 
     """
-    height = self.get_height()
+    height = self.get_height() / 1000.0
+    print(height, "height")
     cc = 0.0025
     return curr_pos[0] + dist_x * cc * height, curr_pos[1] + dist_y * cc * height
 
