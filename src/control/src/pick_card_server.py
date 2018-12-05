@@ -25,7 +25,19 @@ class PickCardServer:
     dist = baxter_interface.analog_io.AnalogIO('right_hand_range').state()
     return dist
 
-  def execute(self, goal):
+  def move_get_new_z(self, original_pos):
+    list_of_distances = [self.get_height()]
+    for dx in [-0.01, 0.01]:
+        for dy in [-0.01, 0.01]:
+            diff_position = [original_pos[0]+dx]+[original_pos[1]+dy]+[original_pos[2]]
+            self.move_arm(diff_position)
+            print(self.get_height())
+            list_of_distances += [self.get_height()]
+    self.move_arm(original_pos)
+    return original_pos[2] - min(list_of_distances) / 1000.0 #np.mean(np.array(list_of_distances)) / 1000.0
+
+
+  def move_arm(self, pos):
     #Construct the request
     compute_ik = self.compute_ik
     request = GetPositionIKRequest()
@@ -37,9 +49,13 @@ class PickCardServer:
     # Move gripper to an example pick, like 0.695 -0.063 -0.222
     
     #Set the desired orientation for the end effector HERE
-    request.ik_request.pose_stamped.pose.position.x = goal.card_pos[0]
-    request.ik_request.pose_stamped.pose.position.y = goal.card_pos[1]
-    request.ik_request.pose_stamped.pose.position.z = self.get_height()      
+    request.ik_request.pose_stamped.pose.position.x = pos[0]
+    request.ik_request.pose_stamped.pose.position.y = pos[1]
+    request.ik_request.pose_stamped.pose.position.z = pos[2] 
+    # print(goal.card_pos[2] \
+    #                         - self.get_height() / 1000.0 + 0.06, goal.card_pos[2], self.get_height())
+    # request.ik_request.pose_stamped.pose.position.z = goal.card_pos[2] \
+    #                         - self.get_height() / 1000.0 + 0.06
     request.ik_request.pose_stamped.pose.orientation.x = 0.0
     request.ik_request.pose_stamped.pose.orientation.y = 1.0
     request.ik_request.pose_stamped.pose.orientation.z = 0.0
@@ -47,11 +63,11 @@ class PickCardServer:
 
     try:
         #Send the request to the service
-        print("REQUEST:", request)
+        #print("REQUEST:", request)
         response = compute_ik(request)
         
         #Print the response HERE
-        print("RESPONSE:", response)
+        #print("RESPONSE:", response)
         group = MoveGroupCommander("right_arm")
 
         # Setting position and orientation target
@@ -66,11 +82,24 @@ class PickCardServer:
         
     except rospy.ServiceException, e:
         print "Service call failed: %s"%e
+
+
+  def execute(self, goal):
+    
     # for the placing:
-    print('Opening gripper...')
-    rospy.sleep(1.0)
+    new_pos = [goal.card_pos[0], goal.card_pos[1], goal.card_pos[2] + 0.15]
+    self.move_arm(new_pos)
+    new_z = self.move_get_new_z(new_pos)
+    new_pos[2] = new_z + 0.05#0.045 # to account for height diff between ir and gripper 
+    print(goal.card_pos, new_pos)
+    self.move_arm(new_pos)
+
+    print('Engaging suction...')
+    self.right_gripper.set_vacuum_threshold(0.2)
     self.right_gripper.close()
     print('Done!')
+    rospy.sleep(1.0)
+
     # Do lots of awesome groundbreaking robot stuff here
     result = PickCardResult(1)
     self.server.set_succeeded(result)

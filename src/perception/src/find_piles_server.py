@@ -21,7 +21,7 @@ class FindPilesServer:
     self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
     self.cv_bridge = CvBridge()
     self.piles = {}
-    self.arm_pos = [0.65, 0.04, 0.02]
+    self.arm_pos = [0.65, 0.04, 0.04]
     self.IMG_HEIGHT = 800
     self.IMG_WIDTH = 1280
 
@@ -30,7 +30,7 @@ class FindPilesServer:
     compute_ik = self.compute_ik
     request = GetPositionIKRequest()
     request.ik_request.group_name = "left_arm"
-    request.ik_request.ik_link_name = "left_gripper"
+    request.ik_request.ik_link_name = "left_hand_camera"
     request.ik_request.attempts = 20
     request.ik_request.pose_stamped.header.frame_id = "base"
 
@@ -68,8 +68,20 @@ class FindPilesServer:
         print "Service call failed: %s"%e
 
   def execute(self, goal):
+    self.move_arm(pos=[0.750, 0.597, 0.054])
+    ### TEST
+    # self.piles = {"black": [10,2,3], "white": [5,6,7]}
+    # result = FindPilesResult(self.piles_to_string())
+
+
+    # self.server.set_succeeded(result)
+    # return
+    ### TEST
+
+
     self.move_arm(pos=self.arm_pos)
     img = self.update_piles()
+    self.move_arm(pos=[0.750, 0.597, 0.054])
     cv2.destroyAllWindows()
     img = cv2.resize(img, (1024, 600))
     if img is not None:
@@ -78,59 +90,78 @@ class FindPilesServer:
       pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
       pub.publish(msg)
       rospy.sleep(1)
+      result = FindPilesResult(self.piles_to_string())
+
+
+      self.server.set_succeeded(result)
     else: 
-      pass
+      print("did not find good")
         #failure
 
         #cv2.imshow("converted", frame_white)
         #cv2.waitKey(10)
     #cv2.destroyAllWindows()
 
+
+
   def recursive_find(self, pos, color):
       # color: black=True, white=False
       # pos: rough pos
-    NUM_TRIES = 10
+    NUM_TRIES = 4
     pos = np.array(pos)
     x_c, y_c = self.IMG_WIDTH // 2, self.IMG_HEIGHT // 2
-    if color:
-      pass
-        # balck
-    else:
-      pos[2] -= 0.1
-      curr_dist_from_center = float('inf')
-      best_img = None
-      thresh = 0.07
-      while curr_dist_from_center > thresh:
-        self.move_arm(pos)
-  
-        all_cards = []
-        for _ in range(NUM_TRIES):
-          frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
-          frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
-          _, card, img = card_table_detection.get_contours(frame)
-          if len(card) == 1:
-            best_img = img
-            all_cards.append(card[0])
-        all_cards = np.array(all_cards)
-        print(all_cards)
-        best_card = all_cards.mean(axis=0).astype(int)
-        print(best_card)
-        card_x_c, card_y_c = (best_card[0] + best_card[2]) // 2, (best_card[1] + best_card[3]) // 2
-        
-        new_pos = np.array(self.get_dist_from_center(best_card, pos) + (pos[2],))
-        curr_dist_from_center = np.sqrt(sum((new_pos -pos) ** 2))
-        if curr_dist_from_center > thresh: break
-        print("DIST", curr_dist_from_center, card_x_c, card_y_c, x_c, y_c)
-        print("POS", new_pos, pos)
-        cv2.imshow('img', best_img)
-        cv2.waitKey(5000)
-        pos = new_pos
-    print("final pos ", pos, self.get_height())
+    # if color:
+    #   pass
+    #     # balck
+    # else:
+    pos[2] -= 0.1
+    print("MOVING TO ", pos)
+    curr_dist_from_center = float('inf')
+    best_img = None
+    thresh = 0.022
+    while curr_dist_from_center > thresh:
+      self.move_arm(pos)
 
+      all_cards = []
+      for _ in range(NUM_TRIES):
+        frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
+        frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
+        if color:
+          card, _, img = card_table_detection.get_contours(frame)
+        else:
+          _, card, img = card_table_detection.get_contours(frame)
+        if len(card) == 1:
+          best_img = img
+          all_cards.append(card[0])
+      all_cards = np.array(all_cards)
+      if len(all_cards) == 0: break
+      #print(all_cards)
+      best_card = all_cards.mean(axis=0).astype(int)
+      print(best_card)
+      card_x_c, card_y_c = (best_card[0] + best_card[2]) // 2, (best_card[1] + best_card[3]) // 2
+      
+      new_pos = np.array(self.get_dist_from_center(best_card, pos) + (pos[2],))
+      curr_dist_from_center = np.sqrt(sum((new_pos -pos) ** 2))
+      print("DIST", curr_dist_from_center, card_x_c, card_y_c, x_c, y_c)
+      print("POS", new_pos, pos)
+      cv2.imshow('img', best_img)
+      cv2.waitKey(1000)
+      if curr_dist_from_center < thresh: break
+      
+      pos = new_pos
+    pos[2] -= self.get_height() / 1000.0
+    print("final pos ", pos, self.get_height())
+    return pos
+
+  def piles_to_string(self):
+    ret = []
+    for pile, pos in self.piles.items():
+      ret.append(pile + "," + str(list(pos))[1:-1])
+    return ret
 
   def update_piles(self):
     NUM_TRIES = 15
-    if len(self.piles) == 0:
+    if True or len(self.piles) == 0:
       # get only initial black and white piles
       try:
         all_blacks, all_whites = [], []
@@ -139,8 +170,8 @@ class FindPilesServer:
           frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
           frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
           blacks, whites, img = card_table_detection.get_contours(frame)
-          #cv2.imshow('img', img)
-          #cv2.waitKey(1000)
+          # cv2.imshow('img', img)
+          # cv2.waitKey(1000)
 
           if len(blacks) == 1:
             # should be exactly one black pile
@@ -155,16 +186,22 @@ class FindPilesServer:
         all_whites = np.array(all_whites)
         best_black = all_blacks.mean(axis=0).astype(int)
         best_white = all_whites.mean(axis=0).astype(int)
-        print(best_white)
-        white_pos = self.get_dist_from_center(best_white, self.arm_pos)
-        print(white_pos)
+        print(best_white, best_black)
         cv2.imshow('img', best_img)
-        cv2.waitKey(5000)
+        cv2.waitKey(1000)
+        
+        white_pos = self.get_dist_from_center(best_white, self.arm_pos)
         white_pos = self.recursive_find(list(white_pos) + [self.arm_pos[2]], False)
+        black_pos = self.get_dist_from_center(best_black, self.arm_pos)
+        print(white_pos, black_pos)
+
+        black_pos = self.recursive_find(list(black_pos) + [self.arm_pos[2]], True)
+        self.piles["white"] = white_pos
+        self.piles["black"] = black_pos
         return best_img
       except Exception as e:
         print("failed", str(e))
-        return frame
+        return None
 
   def get_height(self):
     dist = baxter_interface.analog_io.AnalogIO('left_hand_range').state()
@@ -186,7 +223,7 @@ class FindPilesServer:
     height = self.get_height() / 1000.0
     print(height, "height")
     cc = 0.0025
-    return curr_pos[0] + dist_x * cc * height, curr_pos[1] + dist_y * cc * height
+    return curr_pos[0] + dist_y * cc * height, curr_pos[1] + dist_x * cc * height
 
   def get_xy_world(self, x_pixel, y_pixel):
     pass

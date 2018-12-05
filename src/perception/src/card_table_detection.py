@@ -71,14 +71,15 @@ def get_contours(frame, hand=True):
         LOWERX, UPPERX, LOWERY, UPPERY = 300, 900, 0, 800
 
     gray = gray[LOWERY:UPPERY,LOWERX:UPPERX]
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
-    edged = cv2.Canny(gray, 10, 200)
+    gray = cv2.GaussianBlur(gray, (7, 7), 0)
+    edged = cv2.Canny(gray, 5, 200)
     cnts = cv2.findContours(edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[1]
     cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:10]
     #cv2.drawContours(frame, cnts, -1, (125, 0, 0), 3)
-    #cv2.imshow('edged', edged)
-    #cv2.waitKey(1)
+    cv2.imshow('edged', edged)
+    cv2.waitKey(1000)
     screenCnts = []
+    minBoundingArea = 4000
     for c in cnts:
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
@@ -88,12 +89,12 @@ def get_contours(frame, hand=True):
         actualArea = cv2.contourArea(c)
         
 
-        if len(approx) >= 4 and len(approx) <= 15 and actualArea > 0 \
-                 and boundingArea > 7000 and boundingArea / actualArea < 1.5: #and len(approx) <=5:
+        if len(approx) >= 4 and len(approx) <= 10 and actualArea > 0 \
+                 and boundingArea > minBoundingArea:# and boundingArea / actualArea < 1.5: #and len(approx) <=5:
             screenCnts += [[x,y, x+w, y+h]]
-        #if boundingArea > 7000:
-            #cv2.putText(frame, "{} {} {}".format(len(approx), boundingArea, boundingArea / actualArea),
-            #  (x+LOWERX, y+LOWERY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+        # if boundingArea > minBoundingArea:
+        #     cv2.putText(frame, "{} {} {}".format(len(approx), boundingArea, actualArea, boundingArea / actualArea),
+        #       (x+LOWERX, y+LOWERY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
     #cv2.drawContours(frame, screenCnts, -1, (0,255,0), 3) 
     #return [], [], frame   
     
@@ -112,15 +113,16 @@ def get_contours(frame, hand=True):
         heights.append(y2 - y1)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         mean_color = np.mean(gray[int(y1):int(y2), int(x1):int(x2)])
-        #cv2.putText(frame, "color: {}".format(int(mean_color)),
-        #         (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
-        if mean_color > 120:
+        cv2.putText(frame, "color: {}".format(int(mean_color)),
+                (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+        if mean_color > 170:
             whites.append(pt)
         else:
             blacks.append(pt)
 
         cv2.rectangle(frame, (x1, y1), (x2, y2), 255, 2)
 #    cv2.drawContours(frame, screenCnts, 0, 255)
+    cv2.rectangle(frame, (595, 395), (605, 405), (0, 255, 0), 1)
     return blacks, whites, frame
 
 if __name__ == "__main__":
