@@ -87,10 +87,10 @@ class PickCardServer:
   def execute(self, goal):
     
     # for the placing:
-    new_pos = [goal.card_pos[0], goal.card_pos[1], goal.card_pos[2] + 0.15]
+    new_pos = [goal.card_pos[0], goal.card_pos[1], goal.card_pos[2] + 0.20]
     self.move_arm(new_pos)
     new_z = self.move_get_new_z(new_pos)
-    new_pos[2] = new_z + 0.05#0.045 # to account for height diff between ir and gripper 
+    new_pos[2] = new_z + 0.045#0.045 # to account for height diff between ir and gripper 
     print(goal.card_pos, new_pos)
     self.move_arm(new_pos)
 

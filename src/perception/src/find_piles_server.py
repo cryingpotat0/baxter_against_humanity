@@ -22,7 +22,7 @@ class FindPilesServer:
     self.cv_bridge = CvBridge()
     self.piles = {}
     self.pile_coords = {}
-    self.arm_pos = [0.65, 0.04, 0.04]
+    self.arm_pos = [0.65, 0.04, -0.11]
     self.IMG_HEIGHT = 800
     self.IMG_WIDTH = 1280
 
@@ -69,7 +69,7 @@ class FindPilesServer:
         print "Service call failed: %s"%e
 
   def execute(self, goal):
-    self.move_arm(pos=[0.750, 0.597, 0.054])
+    self.move_arm(pos=[0.750, 0.65, 0.054])
     ### TEST
     # self.piles = {"black": [10,2,3], "white": [5,6,7]}
     # result = FindPilesResult(self.piles_to_string())
@@ -82,7 +82,7 @@ class FindPilesServer:
 
     self.move_arm(pos=self.arm_pos)
     img = self.update_piles()
-    self.move_arm(pos=[0.750, 0.597, 0.054])
+    self.move_arm(pos=[0.750, 0.65, 0.054])
     cv2.destroyAllWindows()
     img = cv2.resize(img, (1024, 600))
     if img is not None:
@@ -119,7 +119,7 @@ class FindPilesServer:
     print("MOVING TO ", pos)
     curr_dist_from_center = float('inf')
     best_img = None
-    thresh = 0.022
+    thresh = 0.015
     while curr_dist_from_center > thresh:
       self.move_arm(pos)
 

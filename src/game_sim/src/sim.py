@@ -5,18 +5,19 @@ roslib.load_manifest('perception_msgs')
 import rospy
 import actionlib
 import time
+from moveit_msgs.msg import OrientationConstraint, Constraints
 from perception_msgs.msg import FindPlayersAction, FindPlayersGoal, FindPilesAction, FindPilesGoal, ReadCardAction, ReadCardGoal
 from bah_control_msgs.msg import SetupArmAction, SetupArmGoal, PlaceCardAction, PlaceCardGoal, PickCardAction, PickCardGoal
 import numpy as np
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 from moveit_commander import MoveGroupCommander
 from cv_bridge import CvBridge, CvBridgeError
-
+import cv2
 
 class GameSim():
     def __init__(self):
         self.cv_bridge = CvBridge()
-        self.RIGHT_NEUTRAL = [0.8, -0.6, 0.2]
+        self.RIGHT_NEUTRAL = [0.7, -0.3, 0]#[0.050, 1.025, -0.133]#[0.9, -0.3, 0.18]
         self.card_piles = {"discard": self.RIGHT_NEUTRAL}
         self.card_text = {}
         self.find_piles_client = actionlib.SimpleActionClient('find_piles', FindPilesAction)
@@ -36,12 +37,11 @@ class GameSim():
         request = GetPositionIKRequest()
         request.ik_request.group_name = "{}_arm".format(arm)
         request.ik_request.ik_link_name = "{}_gripper".format(arm)
-        request.ik_request.attempts = 20
+        request.ik_request.attempts = 50
         request.ik_request.pose_stamped.header.frame_id = "base"
 
         # Move gripper to an example pick, like 0.695 -0.063 -0.222
-        
-        #Set the desired orientation for the end effector HERE
+        # for the end effector HERE
         request.ik_request.pose_stamped.pose.position.x = pos[0]
         request.ik_request.pose_stamped.pose.position.y = pos[1]
         request.ik_request.pose_stamped.pose.position.z = pos[2] 
@@ -54,6 +54,19 @@ class GameSim():
         request.ik_request.pose_stamped.pose.orientation.z = 0.0
         request.ik_request.pose_stamped.pose.orientation.w = 0.0
 
+        orien_const = OrientationConstraint()
+        orien_const.link_name = "right_gripper";
+        orien_const.header.frame_id = "base";
+        orien_const.orientation.y = 1.0;
+        orien_const.orientation.x = 0.0;
+        orien_const.orientation.z = 0.0;
+
+        orien_const.absolute_x_axis_tolerance = 0.5;
+        orien_const.absolute_y_axis_tolerance = 0.5;
+        orien_const.absolute_z_axis_tolerance = 0.5;
+        orien_const.weight = 1.0;
+        orien_const = [orien_const]
+        #Set the desired orientation
         try:
             #Send the request to the service
             #print("REQUEST:", request)
@@ -62,16 +75,20 @@ class GameSim():
             #Print the response HERE
             #print("RESPONSE:", response)
             group = MoveGroupCommander("{}_arm".format(arm))
-
+            group.set_start_state_to_current_state()
+            constraints = Constraints()
+            constraints.orientation_constraints = orien_const
+            group.set_path_constraints(constraints)
             # Setting position and orientation target
             group.set_pose_target(request.ik_request.pose_stamped)
 
             # TRY THIS
             # Setting just the position without specifying the orientation
             #group.set_position_target(goal.card_pos)
-
+            plan = group.plan()
+            group.execute(plan, True)
             # Plan IK and execute
-            group.go()
+            #group.go()
             
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
@@ -119,11 +136,12 @@ class GameSim():
             waypoint[2] = 0
             self.move_arm(waypoint, "right")
             # REPLACE THIS WITH READ FROM HEAD
-            #goal = ReadCardGoal()
-            #self.read_card_client.send_goal(goal)
-            #self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
-            #result = self.read_card_client.get_result()
-            #self.card_text["my_white_{}".format(i)] = result.text
+            print("STARTED READ CARD")
+            goal = ReadCardGoal()
+            self.read_card_client.send_goal(goal)
+            self.read_card_client.wait_for_result(rospy.Duration.from_sec(1000.0))
+            result = self.read_card_client.get_result()
+            self.card_text["my_white_{}".format(i)] = result.text
 
             goal = PlaceCardGoal()
             goal.card_pos = curr_pos
@@ -135,6 +153,9 @@ class GameSim():
         goal.card_pos = self.card_piles["black"]
         self.pick_card_client.send_goal(goal)
         self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+        
+        self.move_arm(waypoint, "right")
+
 
         goal = ReadCardGoal()
         self.read_card_client.send_goal(goal)
@@ -189,7 +210,7 @@ class GameSim():
 
     def show_img(self, img):
         img = cv2.resize(img, (1024, 600))
-        msg = self.cv_bridge.cv2_to_imgmsg(img, encoding="bgr8")
+        msg = self.cv_bridge.cv2_to_imgmsg(img)#, encoding="bgr8")
         pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
         pub.publish(msg)
         rospy.sleep(1)
