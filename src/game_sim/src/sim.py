@@ -10,11 +10,14 @@ from bah_control_msgs.msg import SetupArmAction, SetupArmGoal, PlaceCardAction, 
 import numpy as np
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
 from moveit_commander import MoveGroupCommander
+from cv_bridge import CvBridge, CvBridgeError
 
 
 class GameSim():
     def __init__(self):
-        self.card_piles = {}
+        self.cv_bridge = CvBridge()
+        self.RIGHT_NEUTRAL = [0.8, -0.6, 0.2]
+        self.card_piles = {"discard": self.RIGHT_NEUTRAL}
         self.card_text = {}
         self.find_piles_client = actionlib.SimpleActionClient('find_piles', FindPilesAction)
         self.find_piles_client.wait_for_server()
@@ -26,7 +29,6 @@ class GameSim():
         self.read_card_client.wait_for_server()
 
         self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
-        self.RIGHT_NEUTRAL = [0.8, -0.6, 0.2]
 
     def move_arm(self, pos, arm):
         #Construct the request

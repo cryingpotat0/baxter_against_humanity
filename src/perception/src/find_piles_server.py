@@ -21,6 +21,7 @@ class FindPilesServer:
     self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
     self.cv_bridge = CvBridge()
     self.piles = {}
+    self.pile_coords = {}
     self.arm_pos = [0.65, 0.04, 0.04]
     self.IMG_HEIGHT = 800
     self.IMG_WIDTH = 1280
@@ -189,13 +190,14 @@ class FindPilesServer:
         print(best_white, best_black)
         cv2.imshow('img', best_img)
         cv2.waitKey(1000)
+        self.pile_coords["white"] = best_white
+        self.pile_coords["black"] = best_black
         
         white_pos = self.get_dist_from_center(best_white, self.arm_pos)
         white_pos = self.recursive_find(list(white_pos) + [self.arm_pos[2]], False)
         black_pos = self.get_dist_from_center(best_black, self.arm_pos)
-        print(white_pos, black_pos)
-
         black_pos = self.recursive_find(list(black_pos) + [self.arm_pos[2]], True)
+        print(white_pos, black_pos)
         self.piles["white"] = white_pos
         self.piles["black"] = black_pos
         return best_img
@@ -203,6 +205,40 @@ class FindPilesServer:
         print("failed", str(e))
         return None
     elif len(self.piles) >= 2:
+        black, white = self.piles["black"], self.piles["white"]
+        all_blacks, all_whites = [], []
+        best_img = None
+        for _ in range(NUM_TRIES):
+          frame = rospy.wait_for_message("cameras/left_hand_camera/image", Image)
+          frame = self.cv_bridge.imgmsg_to_cv2(frame, "bgr8")
+          blacks, whites, img = card_table_detection.get_contours(frame)
+          # cv2.imshow('img', img)
+          # cv2.waitKey(1000)
+
+          if len(blacks) == 2:
+            # should be exactly one black pile
+            black = max(blacks, key=lambda black: (np.array(black) - self.pile_coords["black"]) ** 2)
+            all_blacks.append(black)
+          if len(whites) == 2:
+            white = max(whites, key=lambda white: (np.array(white) - self.pile_coords["white"]) ** 2)
+            all_whites.append(white)
+          if len(whites) == 2 and len(blacks) == 2:
+            best_img = img
+        
+        print(all_blacks, "blacks\n", all_whites, "whites")
+        all_blacks = np.array(all_blacks)
+        all_whites = np.array(all_whites)
+        best_black = all_blacks.mean(axis=0).astype(int)
+        best_white = all_whites.mean(axis=0).astype(int)
+        print(best_white, best_black)
+        cv2.imshow('img', best_img)
+        cv2.waitKey(1000)
+        white_pos = self.get_dist_from_center(best_white, self.arm_pos)
+        white_pos = self.recursive_find(list(white_pos) + [self.arm_pos[2]], False)
+        black_pos = self.get_dist_from_center(best_black, self.arm_pos)
+        black_pos = self.recursive_find(list(black_pos) + [self.arm_pos[2]], True)
+        self.piles["curr_black"] = black_pos
+        self.piles["curr_white"] = white_pos
         # detect new white pile and black pile
 
   def get_height(self):
@@ -226,9 +262,6 @@ class FindPilesServer:
     print(height, "height")
     cc = 0.0025
     return curr_pos[0] + dist_y * cc * height, curr_pos[1] + dist_x * cc * height
-
-  def get_xy_world(self, x_pixel, y_pixel):
-    pass
 
 if __name__ == '__main__':
   rospy.init_node('find_piles_server')
