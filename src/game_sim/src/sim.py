@@ -5,7 +5,7 @@ roslib.load_manifest('perception_msgs')
 import rospy
 import actionlib
 import time
-from perception_msgs.msg import FindPlayersAction, FindPlayersGoal, FindPilesAction, FindPilesGoal
+from perception_msgs.msg import FindPlayersAction, FindPlayersGoal, FindPilesAction, FindPilesGoal, ReadCardAction, ReadCardGoal
 from bah_control_msgs.msg import SetupArmAction, SetupArmGoal, PlaceCardAction, PlaceCardGoal, PickCardAction, PickCardGoal
 import numpy as np
 from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKResponse
@@ -15,14 +15,18 @@ from moveit_commander import MoveGroupCommander
 class GameSim():
     def __init__(self):
         self.card_piles = {}
+        self.card_text = {}
         self.find_piles_client = actionlib.SimpleActionClient('find_piles', FindPilesAction)
         self.find_piles_client.wait_for_server()
         self.pick_card_client = actionlib.SimpleActionClient('pick_card', PickCardAction)
         self.pick_card_client.wait_for_server()
         self.place_card_client = actionlib.SimpleActionClient('place_card', PlaceCardAction)
         self.place_card_client.wait_for_server()
+        self.read_card_client = actionlib.SimpleActionClient('read_card', ReadCardAction)
+        self.read_card_client.wait_for_server()
 
         self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
+        self.RIGHT_NEUTRAL = [0.8, -0.6, 0.2]
 
     def move_arm(self, pos, arm):
         #Construct the request
@@ -71,7 +75,7 @@ class GameSim():
             print "Service call failed: %s"%e
 
     def initialize(self):
-        self.move_arm([0.8, -0.6, 0.2], "right")
+        self.move_arm(self.RIGHT_NEUTRAL, "right")
         # self.move_arm([0.6992825269699097, -0.15996749699115753, -0.155], "right")#.14400000596046447], "right")
 
         
@@ -92,38 +96,123 @@ class GameSim():
         # self.pick_card_client.send_goal(goal)
         # self.pick_card_client.wait_for_result(rospy.Duration.from_sec(60.0))
 
-        goal = PickCardGoal()
-        #goal.card_pos = [0.6992825269699097, 0.15996749699115753, -0.15]
-        goal.card_pos = self.card_piles["white"]#[0.5045, -0.06, -0]#-0.08] #-0.08 - 244.0 / 1000 + 0.08] #-0.26] #- 293.0 / 1000 + 0.05]
-        # #goal.card_pos = [0.8, 0.0403, 0.1]
-        # # Fill in the goal here
-        self.pick_card_client.send_goal(goal)
-        self.pick_card_client.wait_for_result(rospy.Duration.from_sec(60.0))
+        NUM_OTHER_PLAYERS = 2
+        NUM_WHITE_CARDS = 3
+        X_DIFF = -0.15 #M BELOW (X IS TOWARDS ROBOT)
+        Y_DIFF = -0.15 #M BELOW (X IS TOWARDS ROBOT)
+        for i in range(NUM_WHITE_CARDS):
+            curr_pos = list(self.card_piles["white"]) # copy white pile pos
+            curr_pos[0] += X_DIFF
+            curr_pos[1] += i * Y_DIFF
+            curr_pos[2] = -0.165
+            self.card_piles["my_white_{}".format(i)] = curr_pos
+
+            goal = PickCardGoal()
+            goal.card_pos = self.card_piles["white"]
+            self.pick_card_client.send_goal(goal)
+            self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+
+            # REPLACE THIS WITH READ FROM HEAD
+            waypoint = list(curr_pos)
+            waypoint[2] = 0
+            self.move_arm(waypoint, "right")
+            # REPLACE THIS WITH READ FROM HEAD
+            #goal = ReadCardGoal()
+            #self.read_card_client.send_goal(goal)
+            #self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+            #result = self.read_card_client.get_result()
+            #self.card_text["my_white_{}".format(i)] = result.text
+
+            goal = PlaceCardGoal()
+            goal.card_pos = curr_pos
+            self.place_card_client.send_goal(goal)
+            self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
         
-        # white_pos = goal.card_pos #self.card_piles["white"]
-        white_pos = self.card_piles["white"]
+        #ROBOT START GAME BY PICKING UP BLACK CARD
+        goal = PickCardGoal()
+        goal.card_pos = self.card_piles["black"]
+        self.pick_card_client.send_goal(goal)
+        self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
 
-        place_pos = [white_pos[0] - 0.15, white_pos[1], 0]
-        self.move_arm(place_pos ,"right")
+        goal = ReadCardGoal()
+        self.read_card_client.send_goal(goal)
+        self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+        result = self.read_card_client.get_result()
+        self.show_txt(result.text)
+        self.card_text["curr_black"] = result.text
 
-        # print("PlaceCardGoal")
-        # white_pos = self.card_piles["white"]
+        curr_pos = list(self.card_piles["black"]) 
+        curr_pos[1] += 0.30
+        curr_pos[2] = -0.165
+        goal = PlaceCardGoal()
+        goal.card_pos = curr_pos
+        self.place_card_client.send_goal(goal)
+        self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
 
-        # # white_pos = goal.card_pos #self.card_piles["white"]
-        # place_pos = [white_pos[0] - 0.15, white_pos[1], -0.165]
-        # goal = PlaceCardGoal()
-        # goal.card_pos = place_pos #-0.209]
-        # #goal.card_pos = self.card_piles["white"]#[0.5045, -0.06, -0]#-0.08] #-0.08 - 244.0 / 1000 + 0.08] #-0.26] #- 293.0 / 1000 + 0.05]
-        # #goal.card_pos = [0.8, 0.0403, 0.1]
-        # # Fill in the goal here
-        # self.place_card_client.send_goal(goal)
-        # self.place_card_client.wait_for_result(rospy.Duration.from_sec(60.0))
+        # sleep for 30 seconds or smt while people choose cards
 
-        # new_pos = goal.card_pos
-        # new_pos[2] += 1
-        # self.move_arm(new_pos, "right")
-        # self.move_arm([0.8, -0.6, 0.2], "right")
+        print("started FindPiles")
+        goal = FindPilesGoal(1)
+        self.find_piles_client.send_goal(goal)
+        r = self.find_piles_client.wait_for_result(rospy.Duration.from_sec(200.0))
+        result = self.find_piles_client.get_result()
+        self.parse_find_piles_result(result.positions)
+        print("Done with FindPiles")
+        print(self.card_piles)
 
+        self.card_piles["curr_white"]
+        curr_whites = []
+        for _ in range(NUM_OTHER_PLAYERS):
+            goal = PickCardGoal()
+            goal.card_pos = self.card_piles["curr_white"]
+            self.pick_card_client.send_goal(goal)
+            self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+
+            goal = ReadCardGoal(1)
+            self.read_card_client.send_goal(goal)
+            self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+            result = self.read_card_client.get_result()
+            curr_whites.append(result.text)
+
+            goal = PlaceCardGoal()
+            goal.card_pos = self.card_piles["discard"]
+            self.place_card_client.send_goal(goal)
+            self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+
+        best_white_text = self.choose_best_white(self.card_text["curr_black"], curr_whites)
+
+        # display best white text
+        self.show_txt(best_white_text)
+        self.move_arm(self.RIGHT_NEUTRAL, "right")
+
+    def show_img(self, img):
+        img = cv2.resize(img, (1024, 600))
+        msg = self.cv_bridge.cv2_to_imgmsg(img, encoding="bgr8")
+        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
+        pub.publish(msg)
+        rospy.sleep(1)
+
+    def show_txt(self, text):
+        img = np.zeros((1024,600), np.uint8)
+
+        # Write some Text
+
+        font                   = cv2.FONT_HERSHEY_SIMPLEX
+        bottomLeftCornerOfText = (10,500)
+        fontScale              = 10
+        fontColor              = (255,255,255)
+        lineType               = 2
+
+        cv2.putText(img,text, 
+            bottomLeftCornerOfText, 
+            font, 
+            fontScale,
+            fontColor,
+            lineType)
+        self.show_img(img)
+
+    def choose_best_white(self, black, whites):
+        return whites[0]
 
     def parse_find_piles_result(self, result):
         for pile in result:
@@ -140,10 +229,10 @@ class GameSim():
     goal = FindPlayersGoal(1)
     # Fill in the goal here
     for _ in range(10):
-    	time.sleep(2)
-    	find_players_client.send_goal(goal)
-    	find_players_client.wait_for_result(rospy.Duration.from_sec(50.0))
-    	print(find_players_client.get_result())
+        time.sleep(2)
+        find_players_client.send_goal(goal)
+        find_players_client.wait_for_result(rospy.Duration.from_sec(50.0))
+        print(find_players_client.get_result())
     print("Done with find players")
     
     

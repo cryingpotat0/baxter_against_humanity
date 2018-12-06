@@ -29,19 +29,19 @@ def send_vision_request_read_response(cv2_frame):
         #'features':{'type': "TEXT_DETECTION"}
         #}
         data = {
-  "requests":[
-    {
-      "image":{
-        "content": encoded_string
-      },
-      "features":[
-        {
-          "type":"TEXT_DETECTION",
-        }
-      ]
-    }
-  ]
-}
+                "requests":[
+                    {
+                        "image":{
+                            "content": encoded_string
+                            },
+                        "features":[
+                            {
+                                "type":"TEXT_DETECTION",
+                                }
+                            ]
+                        }
+                    ]
+                }
 
         # make POST request
         print(API_ENDPOINT + "?key=" + key)
@@ -61,12 +61,14 @@ class ReadCardServer:
     self.server.start()
 
   def execute(self, goal):
+    #goal.do_task = 1 => show card on screen
     # Do lots of awesome groundbreaking robot stuff here
+    # use stddev of cropped part of image to determine if card is there
     print("executing ReadCard goal")
 
 if __name__ == '__main__':
     img = cv2.imread("./videos/test/img202.png")
     print(send_vision_request_read_response(img))
-  #rospy.init_node('read_card_server')
-  #server = ReadCardServer()
-  #rospy.spin()
+    rospy.init_node('read_card_server')
+    server = ReadCardServer()
+    rospy.spin()

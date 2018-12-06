@@ -161,7 +161,7 @@ class FindPilesServer:
 
   def update_piles(self):
     NUM_TRIES = 15
-    if True or len(self.piles) == 0:
+    if len(self.piles) == 0:
       # get only initial black and white piles
       try:
         all_blacks, all_whites = [], []
@@ -202,6 +202,8 @@ class FindPilesServer:
       except Exception as e:
         print("failed", str(e))
         return None
+    elif len(self.piles) >= 2:
+        # detect new white pile and black pile
 
   def get_height(self):
     dist = baxter_interface.analog_io.AnalogIO('left_hand_range').state()
