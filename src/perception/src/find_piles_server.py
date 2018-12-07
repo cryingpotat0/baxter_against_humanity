@@ -22,17 +22,19 @@ class FindPilesServer:
     self.cv_bridge = CvBridge()
     self.piles = {}
     self.pile_coords = {}
-    self.arm_pos = [0.65, 0.04, -0.11]
+    self.arm_pos = [0.65, 0.04, 0.1]#-0.11]
     self.IMG_HEIGHT = 800
     self.IMG_WIDTH = 1280
+
+
 
   def move_arm(self, pos):
     # Do lots of awesome groundbreaking robot stuff here
     compute_ik = self.compute_ik
     request = GetPositionIKRequest()
     request.ik_request.group_name = "left_arm"
-    request.ik_request.ik_link_name = "left_hand_camera"
-    request.ik_request.attempts = 20
+    request.ik_request.ik_link_name = "left_hand_camera" #left_hand_camera"
+    request.ik_request.attempts = 40
     request.ik_request.pose_stamped.header.frame_id = "base"
 
     # Move gripper to an example place, like 0.695 -0.063 -0.222
@@ -54,7 +56,7 @@ class FindPilesServer:
         #Print the response HERE
         #print("RESPONSE:", response)
         group = MoveGroupCommander("left_arm")
-
+        group.set_start_state_to_current_state()
         # Setting position and orientation target
         group.set_pose_target(request.ik_request.pose_stamped)
 
@@ -119,7 +121,7 @@ class FindPilesServer:
     print("MOVING TO ", pos)
     curr_dist_from_center = float('inf')
     best_img = None
-    thresh = 0.015
+    thresh = 0.012
     while curr_dist_from_center > thresh:
       self.move_arm(pos)
 
@@ -150,7 +152,7 @@ class FindPilesServer:
       if curr_dist_from_center < thresh: break
       
       pos = new_pos
-    pos[2] -= self.get_height() / 1000.0
+    #pos[2] -= self.get_height() / 1000.0
     print("final pos ", pos, self.get_height())
     return pos
 
@@ -195,6 +197,8 @@ class FindPilesServer:
         
         white_pos = self.get_dist_from_center(best_white, self.arm_pos)
         white_pos = self.recursive_find(list(white_pos) + [self.arm_pos[2]], False)
+
+        self.move_arm(pos=[0.750, 0.65, 0.054])
         black_pos = self.get_dist_from_center(best_black, self.arm_pos)
         black_pos = self.recursive_find(list(black_pos) + [self.arm_pos[2]], True)
         print(white_pos, black_pos)

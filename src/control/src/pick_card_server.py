@@ -34,7 +34,7 @@ class PickCardServer:
             print(self.get_height())
             list_of_distances += [self.get_height()]
     self.move_arm(original_pos)
-    return original_pos[2] - min(list_of_distances) / 1000.0 #np.mean(np.array(list_of_distances)) / 1000.0
+    return original_pos[2] - sorted(list_of_distances)[-2] / 1000.0 #np.mean(np.array(list_of_distances)) / 1000.0
 
 
   def move_arm(self, pos):
@@ -43,7 +43,7 @@ class PickCardServer:
     request = GetPositionIKRequest()
     request.ik_request.group_name = "right_arm"
     request.ik_request.ik_link_name = "right_gripper"
-    request.ik_request.attempts = 20
+    request.ik_request.attempts = 40
     request.ik_request.pose_stamped.header.frame_id = "base"
 
     # Move gripper to an example pick, like 0.695 -0.063 -0.222
@@ -87,10 +87,17 @@ class PickCardServer:
   def execute(self, goal):
     
     # for the placing:
-    new_pos = [goal.card_pos[0], goal.card_pos[1], goal.card_pos[2] + 0.20]
+    new_pos = [goal.card_pos[0], goal.card_pos[1], goal.card_pos[2]]
     self.move_arm(new_pos)
+    arm_offset = 0.045
     new_z = self.move_get_new_z(new_pos)
-    new_pos[2] = new_z + 0.045#0.045 # to account for height diff between ir and gripper 
+    print("new_z", new_z)
+    new_pos[2] = new_z + arm_offset + 0.09 #0.045 # to account for height diff between ir and gripper 
+    print(goal.card_pos, new_pos)
+    self.move_arm(new_pos)
+
+    new_z = self.move_get_new_z(new_pos)
+    new_pos[2] = new_z + arm_offset #0.045 # to account for height diff between ir and gripper 
     print(goal.card_pos, new_pos)
     self.move_arm(new_pos)
 

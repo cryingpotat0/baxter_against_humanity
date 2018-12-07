@@ -39,7 +39,7 @@ class PlaceCardServer:
     #Set the desired orientation for the end effector HERE
     request.ik_request.pose_stamped.pose.position.x = goal.card_pos[0]
     request.ik_request.pose_stamped.pose.position.y = goal.card_pos[1]
-    request.ik_request.pose_stamped.pose.position.z = goal.card_pos[2]
+    request.ik_request.pose_stamped.pose.position.z = 0 #goal.card_pos[2]
 
     # print(goal.card_pos[2] \
     #                         - self.get_height() / 1000.0 + 0.06, goal.card_pos[2], self.get_height())

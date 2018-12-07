@@ -5,7 +5,7 @@ roslib.load_manifest('perception_msgs')
 import rospy
 import actionlib
 import time
-from moveit_msgs.msg import OrientationConstraint, Constraints
+from moveit_msgs.msg import OrientationConstraint, Constraints, CollisionObject
 from perception_msgs.msg import FindPlayersAction, FindPlayersGoal, FindPilesAction, FindPilesGoal, ReadCardAction, ReadCardGoal
 from bah_control_msgs.msg import SetupArmAction, SetupArmGoal, PlaceCardAction, PlaceCardGoal, PickCardAction, PickCardGoal
 import numpy as np
@@ -13,6 +13,10 @@ from moveit_msgs.srv import GetPositionIK, GetPositionIKRequest, GetPositionIKRe
 from moveit_commander import MoveGroupCommander
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
+from geometry_msgs.msg import PoseStamped
+from shape_msgs.msg import SolidPrimitive
+from sensor_msgs.msg import Image
+
 
 class GameSim():
     def __init__(self):
@@ -30,6 +34,50 @@ class GameSim():
         self.read_card_client.wait_for_server()
 
         self.compute_ik = rospy.ServiceProxy('compute_ik', GetPositionIK)
+        self._planning_scene_publisher = rospy.Publisher('/collision_object', CollisionObject, queue_size=10)
+
+    def add_box_obstacle(self, size, name, pose):
+        """
+        Adds a rectangular prism obstacle to the planning scene
+
+        Inputs:
+        size: 3x' ndarray; (x, y, z) size of the box (in the box's body frame)
+        name: unique name of the obstacle (used for adding and removing)
+        pose: geometry_msgs/PoseStamped object for the CoM of the box in relation to some frame
+        """    
+
+        # Create a CollisionObject, which will be added to the planning scene
+        co = CollisionObject()
+        co.operation = CollisionObject.ADD
+        co.id = name
+        co.header = pose.header
+
+        # Create a box primitive, which will be inside the CollisionObject
+        box = SolidPrimitive()
+        box.type = SolidPrimitive.BOX
+        box.dimensions = size
+
+        # Fill the collision object with primitive(s)
+        co.primitives = [box]
+        co.primitive_poses = [pose.pose]
+
+        # Publish the object
+        self._planning_scene_publisher.publish(co)
+
+    def remove_obstacle(self, name):
+        """
+        Removes an obstacle from the planning scene
+
+        Inputs:
+        name: unique name of the obstacle
+        """
+
+        co = CollisionObject()
+        co.operation = CollisionObject.REMOVE
+        co.id = name
+
+        self._planning_scene_publisher.publish(co)
+
 
     def move_arm(self, pos, arm):
         #Construct the request
@@ -66,7 +114,23 @@ class GameSim():
         orien_const.absolute_z_axis_tolerance = 0.5;
         orien_const.weight = 1.0;
         orien_const = [orien_const]
+
+        pose = PoseStamped()
+        #pose.header.frame_id = "base"
+        
+        #x, y, and z position
+        #pose.pose.position.x = 0.65
+        #pose.pose.position.y = 0.04
+        #pose.pose.position.z = -0.26
+        
+        #Orientation as a quaternion
+        #pose.pose.orientation.x = 0.00 
+        #pose.pose.orientation.y = 0
+        #pose.pose.orientation.z = 0.0
+        #pose.pose.orientation.w = 1.0
+        #self.add_box_obstacle([0.4, 1.2, 0.05], 'hello', pose)
         #Set the desired orientation
+        self.remove_obstacle('hello')
         try:
             #Send the request to the service
             #print("REQUEST:", request)
@@ -94,10 +158,19 @@ class GameSim():
             print "Service call failed: %s"%e
 
     def initialize(self):
-        self.move_arm(self.RIGHT_NEUTRAL, "right")
-        # self.move_arm([0.6992825269699097, -0.15996749699115753, -0.155], "right")#.14400000596046447], "right")
+        # self.show_txt("hello I am baxter the funniest robot in this room")
+        # self.move_arm(self.RIGHT_NEUTRAL, "right")
+        # # self.move_arm([0.6992825269699097, -0.15996749699115753, -0.155], "right")#.14400000596046447], "right")
+        # white_pos = [0.6897075176239014, 0.017024999484419823, 0.0]
+        # white_pos[0] += -0.15
+        # goal = PickCardGoal()
+        # goal.card_pos = white_pos
+        # self.pick_card_client.send_goal(goal)
+        # self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
 
-        
+        # waypoint = [0.6897075176239014, 0.017024999484419823, 0.0]
+        # self.move_arm(waypoint, "right")
+        # time.sleep(1000)
         print("started FindPiles")
         goal = FindPilesGoal(1)
         self.find_piles_client.send_goal(goal)
@@ -132,8 +205,8 @@ class GameSim():
             self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
 
             # REPLACE THIS WITH READ FROM HEAD
-            waypoint = list(curr_pos)
-            waypoint[2] = 0
+            waypoint = list(self.card_piles["white"])
+            waypoint[2] = 0.1
             self.move_arm(waypoint, "right")
             # REPLACE THIS WITH READ FROM HEAD
             print("STARTED READ CARD")
@@ -142,9 +215,10 @@ class GameSim():
             self.read_card_client.wait_for_result(rospy.Duration.from_sec(1000.0))
             result = self.read_card_client.get_result()
             self.card_text["my_white_{}".format(i)] = result.text
-
+            self.show_txt(result.text)
             goal = PlaceCardGoal()
             goal.card_pos = curr_pos
+            goal.card_pos[2] = -0.12
             self.place_card_client.send_goal(goal)
             self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
         
@@ -154,6 +228,8 @@ class GameSim():
         self.pick_card_client.send_goal(goal)
         self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
         
+        waypoint = list(self.card_piles["white"])
+        waypoint[2] = 0.1
         self.move_arm(waypoint, "right")
 
 
@@ -163,10 +239,10 @@ class GameSim():
         result = self.read_card_client.get_result()
         self.show_txt(result.text)
         self.card_text["curr_black"] = result.text
+        black_text = result.text
 
         curr_pos = list(self.card_piles["black"]) 
-        curr_pos[1] += 0.30
-        curr_pos[2] = -0.165
+        curr_pos[1] -= 0.30
         goal = PlaceCardGoal()
         goal.card_pos = curr_pos
         self.place_card_client.send_goal(goal)
@@ -174,35 +250,39 @@ class GameSim():
 
         # sleep for 30 seconds or smt while people choose cards
 
-        print("started FindPiles")
-        goal = FindPilesGoal(1)
-        self.find_piles_client.send_goal(goal)
-        r = self.find_piles_client.wait_for_result(rospy.Duration.from_sec(200.0))
-        result = self.find_piles_client.get_result()
-        self.parse_find_piles_result(result.positions)
-        print("Done with FindPiles")
-        print(self.card_piles)
+        # print("started FindPiles")
+        # goal = FindPilesGoal(1)
+        # self.find_piles_client.send_goal(goal)
+        # r = self.find_piles_client.wait_for_result(rospy.Duration.from_sec(200.0))
+        # result = self.find_piles_client.get_result()
+        # self.parse_find_piles_result(result.positions)
+        # print("Done with FindPiles")
+        # print(self.card_piles)
 
-        self.card_piles["curr_white"]
+        # self.card_piles["curr_white"]
+        # curr_whites = []
+        # for _ in range(NUM_OTHER_PLAYERS):
+        #     goal = PickCardGoal()
+        #     goal.card_pos = self.card_piles["curr_white"]
+        #     self.pick_card_client.send_goal(goal)
+        #     self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+
+        #     goal = ReadCardGoal(1)
+        #     self.read_card_client.send_goal(goal)
+        #     self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
+        #     result = self.read_card_client.get_result()
+        #     curr_whites.append(result.text)
+
+        #     goal = PlaceCardGoal()
+        #     goal.card_pos = self.card_piles["discard"]
+        #     self.place_card_client.send_goal(goal)
+        #     self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
         curr_whites = []
-        for _ in range(NUM_OTHER_PLAYERS):
-            goal = PickCardGoal()
-            goal.card_pos = self.card_piles["curr_white"]
-            self.pick_card_client.send_goal(goal)
-            self.pick_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
-
-            goal = ReadCardGoal(1)
-            self.read_card_client.send_goal(goal)
-            self.read_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
-            result = self.read_card_client.get_result()
-            curr_whites.append(result.text)
-
-            goal = PlaceCardGoal()
-            goal.card_pos = self.card_piles["discard"]
-            self.place_card_client.send_goal(goal)
-            self.place_card_client.wait_for_result(rospy.Duration.from_sec(200.0))
-
-        best_white_text = self.choose_best_white(self.card_text["curr_black"], curr_whites)
+        for card, text in self.card_text.items():
+            if "my_white_" in card:
+                curr_whites.append(text)
+        print(curr_whites, self.card_text)
+        best_white_text = self.choose_best_white(black_text, curr_whites)
 
         # display best white text
         self.show_txt(best_white_text)
@@ -210,21 +290,23 @@ class GameSim():
 
     def show_img(self, img):
         img = cv2.resize(img, (1024, 600))
-        msg = self.cv_bridge.cv2_to_imgmsg(img)#, encoding="bgr8")
+        # cv2.imshow('img', img)
+        # cv2.waitKey(10000)
+        msg = self.cv_bridge.cv2_to_imgmsg(img, encoding="bgr8")
         pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
         pub.publish(msg)
         rospy.sleep(1)
 
     def show_txt(self, text):
-        img = np.zeros((1024,600), np.uint8)
+        img = np.zeros((1024,1000, 3), np.uint8)
 
         # Write some Text
 
         font                   = cv2.FONT_HERSHEY_SIMPLEX
         bottomLeftCornerOfText = (10,500)
-        fontScale              = 10
+        fontScale              = 1
         fontColor              = (255,255,255)
-        lineType               = 2
+        lineType               = 1
 
         cv2.putText(img,text, 
             bottomLeftCornerOfText, 
@@ -232,6 +314,7 @@ class GameSim():
             fontScale,
             fontColor,
             lineType)
+
         self.show_img(img)
 
     def choose_best_white(self, black, whites):
