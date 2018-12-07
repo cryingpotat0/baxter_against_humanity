@@ -285,7 +285,7 @@ class GameSim():
         best_white_text = self.choose_best_white(black_text, curr_whites)
 
         # display best white text
-        self.show_txt(best_white_text)
+        self.show_txt("{} for {}".format(best_white_text, black_text))
         self.move_arm(self.RIGHT_NEUTRAL, "right")
 
     def show_img(self, img):
@@ -318,7 +318,18 @@ class GameSim():
         self.show_img(img)
 
     def choose_best_white(self, black, whites):
-        return whites[0]
+        curr_max = 0
+        best_sen = whites[0]
+        try:
+            import nlp
+            for white in whites:
+                curr = nlp.sentence_similarity(black, white)
+                if abs(curr) > curr_max:
+                    curr_max = curr
+                    best_sen = white
+        except Exception:
+            print("Couldn't do nlp")
+        return best_sen
 
     def parse_find_piles_result(self, result):
         for pile in result:
